@@ -1,0 +1,63 @@
+name: Build
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build_linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: hecrj/setup-rust-action@v1
+    - name: Install cargo-deb
+      run: cargo install cargo-deb
+    - uses: actions/checkout@master
+    - name: Install dependencies
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        sudo apt-get -qq update
+        sudo apt-get install -y libxkbcommon-dev
+    - name: Build binary
+      run: cargo build --verbose --profile release --package hello_world
+    - name: Archive binary
+      uses: actions/upload-artifact@v1
+      with:
+        name: hello_world-x86_64-unknown-linux-gnu
+        path: target/release/hello_world
+
+  build_windows:
+    runs-on: windows-latest
+    steps:
+    - uses: hecrj/setup-rust-action@v1
+    - uses: actions/checkout@master
+    - name: Enable static CRT linkage
+      run: |
+        mkdir .cargo
+        echo '[target.x86_64-pc-windows-msvc]' >> .cargo/config
+        echo 'rustflags = ["-Ctarget-feature=+crt-static"]' >> .cargo/config
+    - name: Run the application without starting the shell
+      run: |
+        sed -i '1 i\#![windows_subsystem = \"windows\"]' src/main.rs
+    - name: Build binary
+      run: cargo build --verbose --profile release --package hello_world
+    - name: Archive binary
+      uses: actions/upload-artifact@v1
+      with:
+        name: hello_world-x86_64-pc-windows-msvc
+        path: target/release/hello_world.exe
+
+  build_macos:
+    runs-on: macOS-latest
+    steps:
+    - uses: hecrj/setup-rust-action@v1
+    - uses: actions/checkout@master
+    - name: Build binary
+      env:
+        MACOSX_DEPLOYMENT_TARGET: 10.14
+      run: cargo build --verbose --profile release --package hello_world
+    - name: Open binary via double-click
+      run: chmod +x target/release/hello_world
+    - name: Archive binary
+      uses: actions/upload-artifact@v1
+      with:
+        name: hello_world-x86_64-apple-darwin
+        path: target/release/hello_world
