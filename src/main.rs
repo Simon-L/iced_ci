@@ -1,10 +1,14 @@
 use iced::{
-    button, futures, image, Alignment, Application, Button, Column, Command,
+    Color, button, futures, image, Alignment, Application, Button, Column, Command,
     Container, Element, Length, Row, Settings, Text,
 };
 
 pub fn main() -> iced::Result {
-    Pokedex::run(Settings::default())
+    let mut set = Settings::default();
+    set.window.decorations = false;
+    set.window.transparent = true;
+    set.antialiasing = true;
+    Pokedex::run(set)
 }
 
 #[derive(Debug)]
@@ -35,6 +39,10 @@ impl Application for Pokedex {
             Pokedex::Loading,
             Command::perform(Pokemon::search(), Message::PokemonFound),
         )
+    }
+
+    fn background_color(&self) -> Color {
+       Color::TRANSPARENT
     }
 
     fn title(&self) -> String {
@@ -79,7 +87,7 @@ impl Application for Pokedex {
         let content = match self {
             Pokedex::Loading => Column::new()
                 .width(Length::Shrink)
-                .push(Text::new("Searching for Pokémon...").size(40)),
+                .push(Text::new("Searching for Pokémon...").size(40).color(Color::WHITE)),
             Pokedex::Loaded { pokemon, search } => Column::new()
                 .max_width(500)
                 .spacing(20)
@@ -91,7 +99,7 @@ impl Application for Pokedex {
             Pokedex::Errored { try_again, .. } => Column::new()
                 .spacing(20)
                 .align_items(Alignment::End)
-                .push(Text::new("Whoops! Something went wrong...").size(40))
+                .push(Text::new("Whoops! Something went wrong...").size(40).color(Color::WHITE))
                 .push(button(try_again, "Try again").on_press(Message::Search)),
         };
 
@@ -106,15 +114,13 @@ impl Application for Pokedex {
 
 #[derive(Debug, Clone)]
 struct Pokemon {
-    number: u16,
     name: String,
-    description: String,
     image: image::Handle,
     image_viewer: image::viewer::State,
 }
 
 impl Pokemon {
-    const TOTAL: u16 = 807;
+    const TOTAL: u16 = 151;
 
     fn view(&mut self) -> Element<Message> {
         Row::new()
@@ -124,26 +130,26 @@ impl Pokemon {
                 &mut self.image_viewer,
                 self.image.clone(),
             ))
-            .push(
-                Column::new()
-                    .spacing(20)
-                    .push(
-                        Row::new()
-                            .align_items(Alignment::Center)
-                            .spacing(20)
-                            .push(
-                                Text::new(&self.name)
-                                    .size(30)
-                                    .width(Length::Fill),
-                            )
-                            .push(
-                                Text::new(format!("#{}", self.number))
-                                    .size(20)
-                                    .color([0.5, 0.5, 0.5]),
-                            ),
-                    )
-                    .push(Text::new(&self.description)),
-            )
+            // .push(
+            //     Column::new()
+            //         .spacing(20)
+            //         .push(
+            //             Row::new()
+            //                 .align_items(Alignment::Center)
+            //                 .spacing(20)
+            //                 .push(
+            //                     Text::new(&self.name)
+            //                         .size(30)
+            //                         .width(Length::Fill),
+            //                 )
+            //                 .push(
+            //                     Text::new(format!("#{}", self.number))
+            //                         .size(20)
+            //                         .color([0.5, 0.5, 0.5]),
+            //                 ),
+            //         )
+            //         .push(Text::new(&self.description)),
+            // )
             .into()
     }
 
@@ -159,7 +165,6 @@ impl Pokemon {
 
         #[derive(Debug, Deserialize)]
         struct FlavorText {
-            flavor_text: String,
             language: Language,
         }
 
@@ -171,7 +176,7 @@ impl Pokemon {
         let id = {
             let mut rng = rand::rngs::OsRng::default();
 
-            rng.gen_range(0, 151)
+            rng.gen_range(1, Pokemon::TOTAL)
         };
 
         let fetch_entry = async {
@@ -185,7 +190,7 @@ impl Pokemon {
             futures::future::try_join(fetch_entry, Self::fetch_image(id))
                 .await?;
 
-        let description = entry
+        let _description = entry
             .flavor_text_entries
             .iter()
             .filter(|text| text.language.name == "en")
@@ -193,13 +198,7 @@ impl Pokemon {
             .ok_or(Error::LanguageError)?;
 
         Ok(Pokemon {
-            number: id,
             name: entry.name.to_uppercase(),
-            description: description
-                .flavor_text
-                .chars()
-                .map(|c| if c.is_control() { ' ' } else { c })
-                .collect(),
             image,
             image_viewer: image::viewer::State::new(),
         })
@@ -207,9 +206,11 @@ impl Pokemon {
 
     async fn fetch_image(id: u16) -> Result<image::Handle, reqwest::Error> {
         let url = format!(
-            "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{}.png",
+            // "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{}.png",
+            "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{}.png",
             id
         );
+        println!("{}", url);
 
         #[cfg(not(target_arch = "wasm32"))]
         {
